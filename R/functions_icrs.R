@@ -363,10 +363,14 @@ plot_qfree_output_daily = function(data){
   # data = tar_read("data_icrs")
 
   data %>%
-    .[,.(Count = sum(trip_count))
-      ,by = .(queried_at, created_irr_disp)] %>%
-    .[order(created_irr_disp)] %>%
-    .[,`:=`(`Rolling 2\nWeek Avg.` = roll_mean(Count, 14))] %>%
+    # .[,.(Count = sum(trip_count))
+    #   ,by = .(queried_at, created_irr_disp)] %>%
+    # .[order(created_irr_disp)] %>%
+    # .[,`:=`(`Rolling 2\nWeek Avg.` = roll_mean(Count, 14))] %>%
+    group_by(queried_at, created_irr_disp) %>%
+    summarise(Count = sum(trip_count)) %>%
+    ungroup() %>%
+    mutate(`Rolling 2\nWeek Avg.` = roll_mean(Count, 14)) %>%
     pivot_longer(cols = c(Count, `Rolling 2\nWeek Avg.`)) %>%
     plot_ly(x = ~created_irr_disp, y = ~value, color = ~name,
             type = "scatter", mode = "line", showlegend=T) %>%
@@ -379,10 +383,17 @@ plot_qfree_output_comp_date = function(data){
   # data = tar_read("data_icrs")
 
   plot_temp = data %>%
-    .[,.(Count = sum(trip_count))
-      ,by = .(created_irr_disp, ir_result   )] %>%
-    .[order(created_irr_disp)] %>%
-    .[,`:=`(`Rolling 2\nWeek Avg.` = roll_mean(Count, 14)), by = .(ir_result   )] %>%
+    # .[,.(Count = sum(trip_count))
+    #   ,by = .(created_irr_disp, ir_result   )] %>%
+    # .[order(created_irr_disp)] %>%
+    # .[,`:=`(`Rolling 2\nWeek Avg.` = roll_mean(Count, 14)), by = .(ir_result)] %>%
+    group_by(created_irr_disp, ir_result) %>%
+    summarise(Count = sum(trip_count)) %>%
+    ungroup() %>%
+    arrange(created_irr_disp) %>%
+    group_by(ir_result) %>%
+    mutate(`Rolling 2\nWeek Avg.` = roll_mean(Count, 14)) %>%
+    ungroup() %>%
     pivot_longer(cols = c(Count, `Rolling 2\nWeek Avg.`)) %>%
     group_by(ir_result) %>%
     group_map(~{
@@ -642,9 +653,13 @@ plot_qfree_trip_matrice_fullpro = function(data){
   # data = tar_read("data_icrs")
 
   temp = data %>%
-    .[,.(count = sum(trip_count)),
-      by = .(trip_date = floor_date(trip_date, "day"),
-             created_irr_disp, diff_created_irr_disp)] %>%
+    # .[,.(count = sum(trip_count)),
+    #   by = .(trip_date = floor_date(trip_date, "day"),
+    #          created_irr_disp, diff_created_irr_disp)] %>%
+    group_by(trip_date = floor_date(trip_date, "day"),
+             created_irr_disp, diff_created_irr_disp) %>%
+    summarise(count = sum(trip_count)) %>%
+    ungroup() %>%
     mutate(text = str_glue("Trip Occurance: {trip_date} \n Processing Date: {created_irr_disp} ({diff_created_irr_disp} days) \n Count: {count}"),
            count_fltr = log10(count) %>%  floor_divide(1),
            count_slct = case_when(count_fltr==0|count_fltr==1~"1. Counts less than 100",
