@@ -48,6 +48,42 @@ get_gdrive_file = function(data_to_fetch){
   }
 }
 
+combine_disp_status_agg = function(current_data, previous_data, time_period){
+  #function replaces above given new data aggregation output from SQL
+
+  tmp_current = current_data %>%
+    mutate(date = floor_date(trip_date, time_period)) %>%
+    count_percent_zscore(grp_c = c(date, dispositionNullFlag)
+                         ,grp_p = c(date)
+                         ,col = trip_count
+                         , rnd = 2) %>%
+    rename(trip_count = "count", daily_pct = "percent") %>%
+    pivot_wider(names_from = dispositionNullFlag, values_from = c(trip_count, daily_pct)) %>%
+    rename_all(
+      funs(
+        str_replace(., "TRUE", "disp") %>%
+          str_replace(., "FALSE", "no")
+      )) %>% select(1, 2, 4, 3, 5)
+
+  tmp_prev = previous_data %>%
+    mutate(date = floor_date(trip_date, time_period)) %>%
+    count_percent_zscore(grp_c = c(date, dispositionNullFlag)
+                         ,grp_p = c(date)
+                         ,col = trip_count
+                         , rnd = 2) %>%
+    rename(trip_count = "count", daily_pct = "percent") %>%
+    pivot_wider(names_from = dispositionNullFlag, values_from = c(trip_count, daily_pct)) %>%
+    rename_all(
+      funs(
+        str_replace(., "TRUE", "disp") %>%
+          str_replace(., "FALSE", "no") %>%
+          paste0("prev_", .)
+      )) %>% select(1, 2, 4, 3, 5)
+
+  tmp <- full_join(tmp_current, tmp_prev, by = c("date" = "prev_date")) %>% arrange(date)
+
+}
+
 make_icrs_mult = function(file){
   # file = tar_read("file_icrs")
   fread(file)
@@ -229,14 +265,19 @@ plot_overview_2week = function(data, data_old){
   # data_old = tar_read("data_icrs_prev")
 
   tmp_current = data %>%
-    .[!is.na(created_irr_disp),] %>%
-    .[created_irr_disp > max(as_date(created_irr_disp)) - weeks(2),] %>%
-    .[,.(trip_count = sum(trip_count)), by = .(trip_date = floor_date(as_date(trip_date), "day"))]
+    mutate(!is.na(created_irr_disp)
+           ,created_irr_disp > max(as_date(created_irr_disp)) - weeks(2)) %>%
+    group_by(trip_date = floor_date(as_date(trip_date), "day")) %>%
+    summarise(trip_count = sum(trip_count)) %>%
+    ungroup()
+    # .[,.(trip_count = sum(trip_count)), by = .(trip_date = floor_date(as_date(trip_date), "day"))]
 
   tmp_prev = data_old %>%
-    .[!is.na(created_irr_disp),] %>%
-    .[created_irr_disp > max(as_date(created_irr_disp)) - weeks(2),] %>%
-    .[,.(trip_count = sum(trip_count)), by = .(trip_date = floor_date(trip_date, "day"))]  %>%
+    mutate(!is.na(created_irr_disp)
+           ,created_irr_disp > max(as_date(created_irr_disp)) - weeks(2)) %>%
+    group_by(trip_date = floor_date(as_date(trip_date), "day")) %>%
+    summarise(trip_count = sum(trip_count)) %>%
+    ungroup()  %>%
     rename("trip_count_prev" = "trip_count")
 
   tmp = full_join(tmp_current, tmp_prev, by = "trip_date") %>%
@@ -692,9 +733,13 @@ plot_qfree_trip_matrice_preQfree = function(data){
   # data = tar_read("data_icrs")
 
   temp = data %>%
-    .[,.(count = sum(trip_count)),
-      by = .(trip_date = floor_date(trip_date, "day"),
-             created_irr_req, diff_created_ireq)] %>%
+  #   .[,.(count = sum(trip_count)),
+  #     by = .(trip_date = floor_date(trip_date, "day"),
+  #            created_irr_req, diff_created_ireq)] %>%
+    group_by(trip_date = floor_date(trip_date, "day"),
+             created_irr_req, diff_created_ireq) %>%
+    summarise(count = sum(trip_count)) %>%
+    ungroup() %>%
     mutate(text = str_glue("Trip Occurance: {trip_date} \n Processing Date: {created_irr_req} ({diff_created_ireq} days) \n Count: {count}"),
            count_fltr = log10(count) %>%  floor_divide(1),
            count_slct = case_when(count_fltr==0|count_fltr==1~"1. Counts less than 100",
