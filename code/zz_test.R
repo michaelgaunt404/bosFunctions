@@ -7,7 +7,7 @@
 #          ,"roll")
 #
 # package_load(pkgs)
-#
+
 #
 # file = here("data", "data_trip_posting_summary.csv")
 # table_trp_pstng_smmry_by_pstngdt(
@@ -32,23 +32,24 @@
 # table_accts_cycleDay_wd(
 #   file = file
 #   ,id = "data_accts_cycleDay_wd")
-#
-# file = here("data", "data_account_creation.csv")
-# table_accts_type(
-#   file = file
-#   ,id = "data_acct_type")
+# #
+# file = here::here("data/req_data", "data_account_creation.csv")
+# # table_accts_type(
+# #   file = file
+# #   ,id = "data_acct_type")
 # table_accts_type_wd(
 #   file = file
-#   ,id = "data_acct_type_wd")
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
+#   ,id = "data_acct_type_wd"
+  # ,height = 100)
+
+
+
+
+
+
+
+
+
+
+
+

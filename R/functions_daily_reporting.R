@@ -1,7 +1,42 @@
-rctble_make_agg_colDefs = function(cols, rm_footer = T, agg_fun = "sum"){
+colDef_sticky = function(cols, side = "left"){
+
+  tmp_coldef = colDef(sticky = side
+                      ,style = list(borderLeft = "1px solid #eee")
+                      ,headerStyle = list(borderLeft = "1px solid #eee"))
+
+  list_of_colDefs <- lapply(cols, function(col) {
+    return(tmp_coldef)
+  })
+
+  named_list_of_colDefs <- setNames(list_of_colDefs, cols)
+}
+
+colDef_hide = function(cols){
+
+  tmp_coldef = colDef(show = F)
+
+  list_of_colDefs <- lapply(cols, function(col) {
+    return(tmp_coldef)
+  })
+
+  named_list_of_colDefs <- setNames(list_of_colDefs, cols)
+}
+
+colDef_minwidth = function(cols, width){
+
+  tmp_coldef = colDef(minWidth = width)
+
+  list_of_colDefs <- lapply(cols, function(col) {
+    return(tmp_coldef)
+  })
+
+  named_list_of_colDefs <- setNames(list_of_colDefs, cols)
+}
+
+colDef_agg = function(cols, rm_footer = T, agg_fun = "sum"){
   rctbl_colDef_summarize = colDef(aggregate = agg_fun
                                   ,format = colFormat(separators = TRUE)
-                                  ,footer = function(values) sum(values))
+                                  ,footer = function(values) sum(values, na.rm = T))
 
   list_of_colDefs <- lapply(cols, function(col) {
     return(rctbl_colDef_summarize)
@@ -15,23 +50,18 @@ rctble_make_agg_colDefs = function(cols, rm_footer = T, agg_fun = "sum"){
   named_list_of_colDefs <- setNames(list_of_colDefs, cols)
 }
 
-rctbl_col_sticky = function(colDef_object, side = "left", col, make = T){
-  if (make){
-    colDef_object[[col]] = list(
-      sticky = side
-      ,style = list(borderLeft = "1px solid #eee")
-      ,headerStyle = list(borderLeft = "1px solid #eee")
-    )
+combined_named_lists = function(...){
+  item_list = list(...)
+  keys <- unique(unlist(map(item_list, names)))
 
-  } else {
-    colDef_object[[col]]$sticky = side
-    colDef_object[[col]]$style = list(borderLeft = "1px solid #eee")
-    colDef_object[[col]]$headerStyle = list(borderLeft = "1px solid #eee")
+  combined = keys %>%
+    map(~{
+      tmp = .x
+      flatten(map(item_list, ~.x[[tmp]]))
+    }) %>%
+    setNames(., keys)
 
-  }
-
-  return(colDef_object)
-
+  return(combined)
 }
 
 rctble_add_download = function(object, item){
@@ -61,7 +91,7 @@ process_trp_pstng_smmry_by_pstngdt = function(file){
     pivot_wider(names_from = "roadway"
                 ,values_from = "count") %>%
     rowwise() %>%
-    mutate(`Grand Total` = sum(c_across(where(is.numeric)))) %>%
+    mutate(`Grand Total` = sum(c_across(where(is.numeric)), na.rm = T)) %>%
     ungroup() %>%
     mutate(Year = year(posting_date)
            ,Month = lubridate::month(posting_date, label = TRUE, abbr = T)) %>%
@@ -69,7 +99,7 @@ process_trp_pstng_smmry_by_pstngdt = function(file){
     rename(`Posting Date` = posting_date)
 }
 
-table_trp_pstng_smmry_by_pstngdt = function(file, id){
+table_trp_pstng_smmry_by_pstngdt = function(file, id, height = "auto", fullWidth = T){
   temp_data = fread(file)
 
   temp_data = temp_data %>%
@@ -78,7 +108,7 @@ table_trp_pstng_smmry_by_pstngdt = function(file, id){
     pivot_wider(names_from = "roadway"
                 ,values_from = "count") %>%
     rowwise() %>%
-    mutate(`Grand Total` = sum(c_across(where(is.numeric)))) %>%
+    mutate(`Grand Total` = sum(c_across(where(is.numeric)), na.rm = T)) %>%
     ungroup() %>%
     mutate(Year = year(posting_date)
            ,Month = lubridate::month(posting_date, label = TRUE, abbr = T)) %>%
@@ -88,18 +118,11 @@ table_trp_pstng_smmry_by_pstngdt = function(file, id){
   tbl_object = reactable(
     temp_data
     ,groupBy = c("Year", "Month")
-    # ,columns = list(
-    #   I405 = colDef(aggregate = "sum", format = colFormat(separators = TRUE))
-    #   ,SR167 = colDef(aggregate = "sum", format = colFormat(separators = TRUE))
-    #   ,SR520 = colDef(aggregate = "sum", format = colFormat(separators = TRUE))
-    #   ,SR99 = colDef(aggregate = "sum", format = colFormat(separators = TRUE))
-    #   ,TNB = colDef(aggregate = "sum", format = colFormat(separators = TRUE))
-    #   ,`Grand Total` = colDef(aggregate = "sum", format = colFormat(separators = TRUE))
-    # )
     ,columns = rctble_make_agg_colDefs(cols = c("I405", "SR167", "SR520", "SR99", "TNB", "Grand Total"), rm_footer = T)
     ,defaultColDef = colDef(footerStyle = list(fontWeight = "bold"))
     ,elementId = stringr::str_glue("dlt_{id}")
-    ,striped = T, highlight = T, bordered = F
+    ,height = height, defaultPageSize = 1000
+    ,striped = T, highlight = T, bordered = F, fullWidth = fullWidth, wrap = FALSE, resizable = TRUE, compact = T
     )
 
   object = rctble_add_download(
@@ -128,7 +151,7 @@ process_trp_pstng_smmry_by_trpdt = function(file){
 
 }
 
-table_trp_pstng_smmry_by_trpdt = function(file, id){
+table_trp_pstng_smmry_by_trpdt = function(file, id, height = "auto", fullWidth = T){
   temp_data = fread(file)
 
   temp_data = temp_data %>%
@@ -147,10 +170,13 @@ table_trp_pstng_smmry_by_trpdt = function(file, id){
   tbl_object = reactable(
     temp_data
     ,groupBy = c("Year", "Month")
-    ,columns = rctble_make_agg_colDefs(cols = c("Recorded Trips", "Sum of Roadside Tolls"), rm_footer = T)
+    ,columns = combined_named_lists(
+      colDef_agg(cols = c("Recorded Trips", "Sum of Roadside Tolls"), rm_footer = T)
+    )
     ,defaultColDef = colDef(footerStyle = list(fontWeight = "bold"))
     ,elementId = stringr::str_glue("dlt_{id}")
-    ,striped = T, highlight = T, bordered = F
+    ,height = height, defaultPageSize = 1000
+    ,striped = T, highlight = T, bordered = F, fullWidth = fullWidth, wrap = FALSE, resizable = TRUE, compact = T
     )
 
   object = rctble_add_download(
@@ -176,7 +202,7 @@ process_pss_flfllmnt = function(file){
     rename(`Request Date` = request_date)
 }
 
-table_pss_flfllmnt = function(file, id){
+table_pss_flfllmnt = function(file, id, height = "auto", fullWidth = T){
   temp_data = fread(file) %>%
     mutate(Year = year(request_date)
            ,Month = lubridate::month(request_date, label = TRUE, abbr = T)) %>%
@@ -195,17 +221,20 @@ table_pss_flfllmnt = function(file, id){
     object = reactable(
       temp_data
       ,groupBy = c("Year", "Month")
-      ,columns = rctble_make_agg_colDefs(cols = c("Fulfilled", "Unfulfilled", "Pass Count"), rm_footer = T)
+      ,columns =
+        combined_named_lists(
+          colDef_agg(cols = c("Fulfilled", "Unfulfilled", "Pass Count"), rm_footer = T)
+        )
       ,defaultColDef = colDef(footerStyle = list(fontWeight = "bold"))
       ,elementId = stringr::str_glue("dlt_{id}")
-      ,striped = T, highlight = T, bordered = F)
-    ,item = id)
+      ,height = height, defaultPageSize = 1000
+      ,striped = T, highlight = T, bordered = F, fullWidth = fullWidth, wrap = FALSE, resizable = TRUE, compact = T
+      ),item = id)
 
   return(object)
 }
 
-# "id_acct_status_wd"
-table_accts_cycleDay = function(file, id){
+table_accts_cycleDay = function(file, id, height = "auto", fullWidth = T, bs_width = c(3, 12)){
   temp_data = fread(file)
   temp_data_sd = SharedData$new(temp_data)
 
@@ -213,29 +242,32 @@ table_accts_cycleDay = function(file, id){
     reactable(
       temp_data_sd
       ,groupBy = c("cycle_day")
-      ,columns = rctble_make_agg_colDefs(cols = c("acct_count"), rm_footer = F)
+      ,columns =
+        combined_named_lists(
+          colDef_agg(cols = c("acct_count"), rm_footer = F)
+          )
       ,defaultColDef = colDef(footerStyle = list(fontWeight = "bold"))
       ,elementId = stringr::str_glue("dlt_{id}")
-      ,striped = T, highlight = T, bordered = F
+      ,height = height, defaultPageSize = 1000
+      ,striped = T, highlight = T, bordered = F, fullWidth = fullWidth, wrap = FALSE, resizable = TRUE, compact = T
     ),item = id
   )
 
-  temp_widget = bscols(widths = c(12)
+  temp_widget = bscols(widths = bs_width
                        ,filter_select('id_acct_status', "Select Acct. Status:", temp_data_sd, ~acct_status)
                        ,temp_table)
 
   return(temp_widget)
 }
 
-# "id_acct_status_wd"
-table_accts_cycleDay_wd = function(file, id){
+table_accts_cycleDay_wd = function(file, id, height = "auto", fullWidth = T, bs_width = c(3, 12)){
   temp_data = fread(file) %>%
     pivot_wider(names_from = "cycle_day", values_from = "acct_count")
 
   temp_data = temp_data %>%
     select(acct_type_desc, acct_status, as.character(sort(as.numeric(colnames(temp_data))))) %>%
     rowwise() %>%
-    mutate(`Grand Total` = sum(c_across(`1`:`28`))) %>%
+    mutate(`Grand Total` = sum(c_across(`1`:`28`), na.rm = T)) %>%
     ungroup()
 
   temp_data_sd = SharedData$new(temp_data)
@@ -249,18 +281,19 @@ table_accts_cycleDay_wd = function(file, id){
         rctbl_col_sticky(col = 'Grand Total', side = "right", make = F)
       ,defaultColDef = colDef(footerStyle = list(fontWeight = "bold"))
       ,elementId = stringr::str_glue("dlt_{id}")
+      ,height = height, defaultPageSize = 1000
+      ,striped = T, highlight = T, bordered = F, fullWidth = fullWidth, wrap = FALSE, resizable = TRUE, compact = T
     ),item = id
   )
 
-  temp_widget = bscols(widths = c(12)
+  temp_widget = bscols(widths = bs_width
                        ,filter_select('id_acct_status_wd', "Select Acct. Status:", temp_data_sd, ~acct_status)
                        ,temp_table)
 
   return(temp_widget)
 }
 
-# "id_acct_type"
-table_accts_type = function(file, id){
+table_accts_type = function(file, id, height = "auto", fullWidth = T, bs_width = c(3, 12)){
   temp_data = fread(file)
 
   temp_data = temp_data %>%
@@ -272,22 +305,25 @@ table_accts_type = function(file, id){
 
   temp_table = rctble_add_download(
     reactable(temp_data_sd
-              ,columns = rctble_make_agg_colDefs(cols = c('Acct Count'), rm_footer = F)
+              ,columns =
+                combined_named_lists(
+                  colDef_agg(cols = c('Acct Count'), rm_footer = F)
+                  )
               ,defaultColDef = colDef(footerStyle = list(fontWeight = "bold"))
               ,elementId = stringr::str_glue("dlt_{id}")
-              ,striped = T, highlight = T, bordered = F
+              ,height = height, defaultPageSize = 1000
+              ,striped = T, highlight = T, bordered = F, fullWidth = fullWidth, wrap = FALSE, resizable = TRUE, compact = T
     ),item = id
   )
 
-  temp_widget = bscols(widths = c(12)
+  temp_widget = bscols(widths = bs_width
                        ,filter_select("id_acct_type", "Id", temp_data_sd, ~account_type)
                        ,temp_table)
 
   return(temp_widget)
 }
 
-# "id_metric_acct"
-table_accts_type_wd = function(file, id){
+table_accts_type_wd = function(file, id, height = "auto", fullWidth = T, bs_width = c(3, 12)){
   temp_data = fread(file)
 
   temp_data = temp_data %>%
@@ -328,7 +364,7 @@ table_accts_type_wd = function(file, id){
 
   temp_data = temp_data %>%
     rowwise() %>%
-    mutate(`Grand Total` = sum(c_across(all_of(temp_index)))) %>%
+    mutate(`Grand Total` = sum(c_across(all_of(temp_index)), na.rm = T)) %>%
     ungroup()
 
   temp_data_sd = SharedData$new(temp_data)
@@ -338,18 +374,125 @@ table_accts_type_wd = function(file, id){
   temp_table = rctble_add_download(
     reactable(
       temp_data_sd
-      ,columns = rctble_make_agg_colDefs(cols = c(temp_index, 'Grand Total'), rm_footer = F) %>%
-        rctbl_col_sticky(col = "account_type") %>%
-        rctbl_col_sticky(col = 'Grand Total', side = "right", make = F)
+      ,columns = combined_named_lists(
+        colDef_agg(cols = c(temp_index, 'Grand Total'), rm_footer = F)
+        ,colDef_sticky(col = "account_type")
+        ,colDef_sticky(col = "metric")
+        ,colDef_sticky(col = 'Grand Total', side = "right", make = F))
       ,defaultColDef = colDef(footerStyle = list(fontWeight = "bold"))
       ,elementId = stringr::str_glue("dlt_{id}")
-      ,striped = T, highlight = T, bordered = F
+      ,height = height, defaultPageSize = 1000
+      ,striped = T, highlight = T, bordered = F, fullWidth = fullWidth
+      ,wrap = FALSE, resizable = TRUE, compact = T
     ),item = id
   )
 
-  temp_widget = bscols(widths = (12)
+  temp_widget = bscols(widths = bs_width
                        ,filter_select('id_metric_acct', "Select Metric:", temp_data_sd, ~metric, multiple = F)
                        ,temp_table)
 
   return(temp_widget)
+}
+
+table_csr_closure = function(file, id, height = "auto", fullWidth = T, bs_width = c(3, 12)){
+  temp_data = fread(file)
+
+  index_month = seq(as_date("2021-01-01"), as_date("2021-12-01"), length.out = 20) %>%
+    lubridate::month(label = T) %>%
+    unique() %>%
+    as.character()
+
+  temp_data_wd = temp_data %>%
+    mutate(year = year(case_updated_month)
+           ,month = lubridate::month(case_updated_month, label = T)) %>%
+    select(!case_updated_month) %>%
+    pivot_wider(names_from = month, values_from = case_count, values_fill = 0) %>%
+    select(modified_by:year, index_month) %>%
+    mutate(across(index_month, as.integer)) %>%
+    group_by(modified_by, case_type, case_category, case_queue_ids, case_created_month,year) %>%
+    mutate(
+      `Total Q1` = sum(c_across(all_of(index_month[c(1:3)])), na.rm = T)
+      ,`Total Q2` = sum(c_across(all_of(index_month[c(4:6)])), na.rm = T)
+      ,`Total Q3` = sum(c_across(all_of(index_month[c(7:9)])), na.rm = T)
+      ,`Total Q4` = sum(c_across(all_of(index_month[c(10:12)])), na.rm = T)
+      ,`Total` = sum(c_across(all_of(index_month))), na.rm = T)
+
+  temp_data_sd = SharedData$new(temp_data_wd)
+
+  temp_table = rctble_add_download(
+    reactable(temp_data_sd
+              ,groupBy = c('modified_by')
+              ,columns = combined_named_lists(
+                colDef_agg(cols = c(index_month
+                                    ,"Grand Total", "Total Q1", "Total Q2"
+                                    ,"Total Q3", "Total Q4", "Total"), rm_footer = F)
+                ,colDef_sticky("modified_by")
+                ,colDef_sticky("Total", "right")
+                ,colDef_minwidth("modified_by", 300)
+                ,colDef_hide(c('case_type', 'case_category', 'case_queue_ids'
+                               ,'case_status', 'case_created_month', 'year'))
+              )
+              ,defaultColDef = colDef(footerStyle = list(fontWeight = "bold"))
+              ,striped = T, highlight = T, bordered = F,
+              fullWidth = fullWidth, wrap = FALSE, resizable = TRUE, compact = F
+    ),item = id
+  )
+
+  temp_widget = bscols(widths = bs_width
+                       ,bscols(
+                         widths = 12
+                         ,filter_select("id_acct_type", "Case Type:", temp_data_sd, ~case_type)
+                         ,filter_select("id_acct_type", "Case Category", temp_data_sd, ~case_category)
+                         ,filter_select("id_acct_type", "Status", temp_data_sd, ~case_status)
+                         ,filter_select("id_acct_type", "Creation Month", temp_data_sd, ~case_created_month)
+                         ,filter_select("id_acct_type", "Queue IDs", temp_data_sd, ~case_queue_ids))
+                       ,temp_table)
+
+  return(temp_widget)
+}
+
+table_disposition = function(file){
+  temp_data = fread(file) %>%
+    mutate(entry_reason = fct_relevel(entry_reason, index_code))
+
+  index_month = unique(temp_data$trip_month) %>% sort() %>%
+    as.character()
+
+  temp_data_wd = temp_data %>%
+    group_by(trip_month, entry_reason, leak_or_adj, roadway) %>%
+    summarise(count = sum(trip_count)) %>%
+    ungroup() %>%
+    pivot_wider(names_from = trip_month
+                ,values_from = count)  %>%
+    arrange(entry_reason) %>%
+    select(entry_reason, leak_or_adj, roadway, index_month) %>%
+    rowwise() %>%
+    mutate(`Grand Total` = sum(c_across(all_of(index_month)), na.rm = T)) %>%
+    ungroup()
+
+  temp_data_sd = SharedData$new(temp_data_wd)
+
+  temp_table = rctble_add_download(
+    reactable(
+      temp_data_sd
+      ,groupBy = c("entry_reason", "leak_or_adj", "roadway")
+      ,columns = combined_named_lists(
+        colDef_agg(cols = c(index_month, 'Grand Total'), rm_footer = F)
+        ,colDef_sticky(col = c("entry_reason", "leak_or_adj", "roadway"))
+        ,colDef_sticky(col = 'Grand Total', side = "right")
+      )
+      ,defaultColDef = colDef(footerStyle = list(fontWeight = "bold"))
+      ,elementId = stringr::str_glue("dlt_{id}")
+      ,height = height, defaultPageSize = 1000
+      ,striped = T, highlight = T, bordered = F, fullWidth = fullWidth
+      ,wrap = FALSE, resizable = TRUE, compact = T
+    ),item = id
+  )
+
+  temp_widget = bscols(widths = bs_width
+                       ,filter_select('id_roadway', "Select Roadway:", temp_data_sd, ~roadway, multiple = F)
+                       ,temp_table)
+
+  return(temp_widget)
+
 }
