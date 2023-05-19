@@ -35,8 +35,7 @@ make_imgdlq_agg = function(data){
   data %>%
     filter(queried_at == max(queried_at)) %>%
     group_by(roadway, trip_date) %>%
-    summarise(across(starts_with("ttl"), .groups = "drop")) %>%
-    ungroup() %>%
+    summarise(across(starts_with("ttl"), sum), .groups = "drop") %>%
     mutate(trip_date = as_date(trip_date),
            check = ttl_requested  == ttl_downloaded_t + ttl_downloaded_f + ttl_nullstatus )
 }

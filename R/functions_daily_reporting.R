@@ -394,7 +394,7 @@ table_accts_type_wd = function(file, id, height = "auto", fullWidth = T, bs_widt
   return(temp_widget)
 }
 
-table_csr_closure = function(file, id, height = "auto", fullWidth = T, bs_width = c(3, 12)){
+table_csr_closure = function(file, id, height = "auto", fullWidth = T, bs_width = c(3, 9)){
   temp_data = fread(file)
 
   index_month = seq(as_date("2021-01-01"), as_date("2021-12-01"), length.out = 20) %>%
@@ -451,7 +451,8 @@ table_csr_closure = function(file, id, height = "auto", fullWidth = T, bs_width 
   return(temp_widget)
 }
 
-table_disposition = function(file){
+table_disposition = function(file, id, height = "auto", index_code
+                             ,fullWidth = T, bs_width = c(3, 12)){
   temp_data = fread(file) %>%
     mutate(entry_reason = fct_relevel(entry_reason, index_code))
 

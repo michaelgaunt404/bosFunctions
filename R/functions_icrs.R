@@ -178,8 +178,9 @@ make_icrs_aggShort_stats_result = function(data){
   # data = tar_read("data_icrs")
 
   data %>%
-    filter(!is.na(ir_result)) %>%
-    filter(ir_result != "") %>%
+    filter(!is.na(ir_result)
+           ,ir_result != ""
+           ,!is.na(created_irr_disp)) %>%
     group_by(trip_date, ir_result, time_qfree) %>%
     summarise(count = sum(trip_count), .groups = "drop") %>%
     group_by(trip_date, ir_result) %>%
@@ -188,7 +189,8 @@ make_icrs_aggShort_stats_result = function(data){
       mean = map(data, ~weighted.mean(.x$time_qfree, .x$count, na.rm = T)),
       qauntiles = map(data, ~group_wtd_quantiles(.x, value = "time_qfree", quantiles = c(.5, .95), weight = "count"))) %>%
     unnest(cols = c(mean, qauntiles)) %>%
-    select(!data)
+    select(!data) %>%
+    ungroup()
 }
 
 make_icrs_aggShort_strat = function(data){
